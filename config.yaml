@@ -1,22 +1,22 @@
 training:
   model: "google/gemma-3-270m-it"   # model checkpoint to load
   output_dir: "./checkpoints"       # directory to save checkpoints
-  max_length: 512                   # max sequence length
+  max_length: 256                   # Reduced from 512 to save memory
   packing: false                    # whether to pack multiple samples per sequence
   num_train_epochs: 2
-  per_device_train_batch_size: 1
-  gradient_checkpointing: false
-  optim: "sgd"
+  per_device_train_batch_size: 1    # Keep small for memory efficiency
+  gradient_checkpointing: true      # Enable to save memory
+  optim: "adamw_torch"              # Avoid fused optimizers for memory
   logging_steps: 1
   save_strategy: "epoch"
   eval_strategy: "epoch"
-  learning_rate: 6e-5               # example value, set yours
-  fp16: true                        # depends on model.dtype
-  bf16: false                       # depends on model.dtype
+  learning_rate: 6e-5               # Conservative learning rate
+  fp16: true                        # Use fp16 to save memory
+  bf16: false                       # Use fp16 instead
   lr_scheduler_type: "constant"
-  push_to_hub: true
-  report_to: "tensorboard"
-  fsdp: "full_shard auto_wrap"
+  push_to_hub: false                # Disable during development
+  report_to: "none"                 # Disable reporting to save memory
+  fsdp: ""                          # Disable FSDP for single GPU
 
 dataset:
   data_path: "./data/train.csv"
@@ -25,51 +25,22 @@ dataset:
     add_special_tokens: false
     append_concat_token: true
 
+# Simplified hyperparameter space for memory constraints
 hyperparameter_space:
-  # Learning rate optimization
+  # Learning rate optimization (reduced range)
   learning_rate:
     type: "float"
     min: 1e-6
-    max: 1e-3
-    log: true  # Use log scale for sampling
+    max: 1e-4
+    log: true
   
-  # Optimizer selection
+  # Optimizer selection (memory-efficient options only)
   optimizer:
     type: "categorical"
-    choices: ["adamw_torch_fused", "adamw_torch", "sgd", "adafactor"]
-  
-  # Number of training epochs
-  num_train_epochs:
-    type: "int"
-    min: 1
-    max: 5
-  
-  # Batch size optimization
-  per_device_train_batch_size:
-    type: "categorical"
-    choices: [1, 2, 4, 8]
-  
-  # Learning rate scheduler
-  lr_scheduler_type:
-    type: "categorical"
-    choices: ["linear", "cosine", "constant", "constant_with_warmup"]
-  
-  # Weight decay (L2 regularization)
-  weight_decay:
-    type: "float"
-    min: 0.0
-    max: 0.1
-    log: false
-  
-  # Warmup ratio for learning rate scheduling
-  warmup_ratio:
-    type: "float"
-    min: 0.0
-    max: 0.2
-    log: false
+    choices: ["adamw_torch", "sgd", "adafactor"]
 
-# Optional: Optuna configuration
+# Reduced Optuna configuration for memory constraints
 optuna:
-  n_trials: 3
+  n_trials: 3                       # Reduced from 6
   direction: "minimize"
   sampler: "GPSampler"

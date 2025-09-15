@@ -9,6 +9,7 @@ import yaml
 import torch
 import os
 import shutil
+import gc
 
 def create_conversation(sample):
     return {
@@ -26,12 +27,18 @@ def load_data(data_path, test_size=0.2):
     return dataset
 
 def load_model(model_name):
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+    # Add attn_implementation='eager' for Gemma models as recommended
+    model = AutoModelForCausalLM.from_pretrained(model_name, attn_implementation='eager')
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model, tokenizer
 
 def objective(trial, model, tokenizer, dataset, config, temp_dir):
     """Objective function for Optuna optimization"""
+    # Clear GPU memory at start of each trial
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+    
     # Suggest hyperparameters
     learning_rate = trial.suggest_float("learning_rate", 1e-6, 1e-3, log=True)
     optimizer = trial.suggest_categorical("optimizer", [
@@ -47,6 +54,7 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
     
     # Create unique output directory for this trial
     trial_output_dir = os.path.join(temp_dir, f'trial_{trial.number}')
+    os.makedirs(trial_output_dir, exist_ok=True)
     
     # Update SFTConfig with trial parameters
     args = SFTConfig(
@@ -58,14 +66,14 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
         gradient_checkpointing=config["training"]["gradient_checkpointing"],
         optim=optimizer,  # Use suggested optimizer
         logging_steps=config["training"]["logging_steps"],
-        save_strategy=config["training"]["save_strategy"],
+        save_strategy="no",  # Don't save during hyperparameter search
         eval_strategy=config["training"]["eval_strategy"],
         learning_rate=learning_rate,  # Use suggested learning rate
         fp16=config["training"]["fp16"],
         bf16=config["training"]["bf16"],
         lr_scheduler_type=config["training"]["lr_scheduler_type"],
         push_to_hub=False,  # Disable during optimization
-        report_to="tensorboard",
+        report_to="none",  # Disable reporting during optimization
         dataset_kwargs=config["dataset"]["dataset_kwargs"],
         fsdp=config["training"]["fsdp"],
     )
@@ -87,6 +95,12 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
         eval_results = trainer.evaluate()
         eval_loss = eval_results['eval_loss']
         
+        # Clean up trainer and clear memory
+        del trainer
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+        
         # Clean up trial directory to save space
         if os.path.exists(trial_output_dir):
             shutil.rmtree(trial_output_dir)
@@ -96,6 +110,13 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
     except Exception as e:
         print(f"Trial {trial.number} failed with error: {e}")
         # Clean up on failure
+        try:
+            del trainer
+        except:
+            pass
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
         if os.path.exists(trial_output_dir):
             shutil.rmtree(trial_output_dir)
         # Return a high loss value to indicate failure
@@ -135,6 +156,11 @@ def run_hyperparameter_optimization(model, tokenizer, dataset, config, n_trials=
 def train_final_model(model, tokenizer, dataset, config, best_params):
     """Train final model with best hyperparameters"""
     print("\nTraining final model with best hyperparameters...")
+    
+    # Clear memory before final training
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
     
     # Create final SFTConfig with best parameters
     args = SFTConfig(
