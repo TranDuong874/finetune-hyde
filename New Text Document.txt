@@ -1,0 +1,1 @@
+Best parameters: {'learning_rate': 6.174191275186619e-05, 'optimizer': 'sgd'}
