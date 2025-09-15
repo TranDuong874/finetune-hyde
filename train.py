@@ -39,27 +39,18 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
         torch.cuda.empty_cache()
     gc.collect()
     
-    hp_space = config["hyperparameter_space"]
-
     # Suggest hyperparameters
-    learning_rate = trial.suggest_float( "learning_rate",
-        float(hp_space["learning_rate"]["min"]), 
-        float(hp_space["learning_rate"]["max"]), 
-        log=hp_space["learning_rate"].get("log", False)
-    )
-
-    optimizer = trial.suggest_categorical("optimizer", 
-        hp_space["optimizer"]["choices"]
-    )
+    learning_rate = trial.suggest_float("learning_rate", 1e-6, 1e-3, log=True)
+    optimizer = trial.suggest_categorical("optimizer", [
+        "adamw_torch_fused", 
+        "adamw_torch", 
+        "sgd", 
+        "adafactor"
+    ])
     
-    num_train_epochs = trial.suggest_int("num_train_epochs", 
-        hp_space["per_device_train_batch_size"]["low"],
-        hp_space["per_device_train_batch_size"]["high"]
-    )
-
-    per_device_train_batch_size = trial.suggest_categorical("per_device_train_batch_size", 
-        hp_space["num_train_epochs"]["choices"]                                                       
-    )
+    # Optional: Add more hyperparameters to optimize
+    # num_train_epochs = trial.suggest_int("num_train_epochs", 1, 5)
+    # per_device_train_batch_size = trial.suggest_categorical("per_device_train_batch_size", [1, 2, 4])
     
     # Create unique output directory for this trial
     trial_output_dir = os.path.join(temp_dir, f'trial_{trial.number}')
@@ -70,8 +61,8 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
         output_dir=trial_output_dir,
         max_length=config["training"]["max_length"],
         packing=config["training"]["packing"],
-        num_train_epochs=num_train_epochs,  # or use suggested value
-        per_device_train_batch_size=per_device_train_batch_size,  # or use suggested value
+        num_train_epochs=config["training"]["num_train_epochs"],  # or use suggested value
+        per_device_train_batch_size=config["training"]["per_device_train_batch_size"],  # or use suggested value
         gradient_checkpointing=config["training"]["gradient_checkpointing"],
         optim=optimizer,  # Use suggested optimizer
         logging_steps=config["training"]["logging_steps"],
@@ -176,8 +167,8 @@ def train_final_model(model, tokenizer, dataset, config, best_params):
         output_dir=config["training"]["output_dir"],  # Use original output dir
         max_length=config["training"]["max_length"],
         packing=config["training"]["packing"],
-        num_train_epochs=config["training"]["num_train_epochs"],
-        per_device_train_batch_size=config["training"]["per_device_train_batch_size"],
+        num_train_epochs=best_params.get('num_train_epochs', config["training"]["num_train_epochs"]),
+        per_device_train_batch_size=best_params.get('per_device_train_batch_size', config["training"]["per_device_train_batch_size"]),
         gradient_checkpointing=config["training"]["gradient_checkpointing"],
         optim=best_params['optimizer'],  # Use best optimizer
         logging_steps=config["training"]["logging_steps"],
