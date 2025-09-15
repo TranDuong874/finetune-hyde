@@ -39,18 +39,27 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
         torch.cuda.empty_cache()
     gc.collect()
     
+    hp_space = config["hyperparameter_space"]
+
     # Suggest hyperparameters
-    learning_rate = trial.suggest_float("learning_rate", 1e-6, 1e-3, log=True)
-    optimizer = trial.suggest_categorical("optimizer", [
-        "adamw_torch_fused", 
-        "adamw_torch", 
-        "sgd", 
-        "adafactor"
-    ])
+    learning_rate = trial.suggest_float( "learning_rate",
+        hp_space["learning_rate"]["min"], 
+        hp_space["learning_rate"]["max"], 
+        hp_space["learning_rate"]["log"]
+    )
+
+    optimizer = trial.suggest_categorical("optimizer", 
+        hp_space["optimizer"]["choices"]
+    )
     
-    # Optional: Add more hyperparameters to optimize
-    # num_train_epochs = trial.suggest_int("num_train_epochs", 1, 5)
-    # per_device_train_batch_size = trial.suggest_categorical("per_device_train_batch_size", [1, 2, 4])
+    num_train_epochs = trial.suggest_int("num_train_epochs", 
+        hp_space["per_device_train_batch_size"]["low"],
+        hp_space["per_device_train_batch_size"]["high"]
+    )
+
+    per_device_train_batch_size = trial.suggest_categorical("per_device_train_batch_size", 
+        hp_space["num_train_epochs"]["choices"]                                                       
+    )
     
     # Create unique output directory for this trial
     trial_output_dir = os.path.join(temp_dir, f'trial_{trial.number}')
@@ -61,8 +70,8 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
         output_dir=trial_output_dir,
         max_length=config["training"]["max_length"],
         packing=config["training"]["packing"],
-        num_train_epochs=config["training"]["num_train_epochs"],  # or use suggested value
-        per_device_train_batch_size=config["training"]["per_device_train_batch_size"],  # or use suggested value
+        num_train_epochs=num_train_epochs,  # or use suggested value
+        per_device_train_batch_size=per_device_train_batch_size,  # or use suggested value
         gradient_checkpointing=config["training"]["gradient_checkpointing"],
         optim=optimizer,  # Use suggested optimizer
         logging_steps=config["training"]["logging_steps"],
