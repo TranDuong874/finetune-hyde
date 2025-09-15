@@ -40,11 +40,13 @@ hyperparameter_space:
     choices: ["adamw_torch", "sgd", "adafactor"]
 
   per_device_train_batch_size:
-    low: 1
-    high: 3
+    type: "categorical"
+    choices: [1, 2]
   
   num_train_epochs:
-    choices: [1, 2, 4]
+    type: "int"
+    min: 1
+    max: 2
   
 # Reduced Optuna configuration for memory constraints
 optuna:
