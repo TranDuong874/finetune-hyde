@@ -24,3 +24,52 @@ dataset:
   dataset_kwargs:
     add_special_tokens: false
     append_concat_token: true
+
+hyperparameter_space:
+  # Learning rate optimization
+  learning_rate:
+    type: "float"
+    min: 1e-6
+    max: 1e-3
+    log: true  # Use log scale for sampling
+  
+  # Optimizer selection
+  optimizer:
+    type: "categorical"
+    choices: ["adamw_torch_fused", "adamw_torch", "sgd", "adafactor"]
+  
+  # Number of training epochs
+  num_train_epochs:
+    type: "int"
+    min: 1
+    max: 5
+  
+  # Batch size optimization
+  per_device_train_batch_size:
+    type: "categorical"
+    choices: [1, 2, 4, 8]
+  
+  # Learning rate scheduler
+  lr_scheduler_type:
+    type: "categorical"
+    choices: ["linear", "cosine", "constant", "constant_with_warmup"]
+  
+  # Weight decay (L2 regularization)
+  weight_decay:
+    type: "float"
+    min: 0.0
+    max: 0.1
+    log: false
+  
+  # Warmup ratio for learning rate scheduling
+  warmup_ratio:
+    type: "float"
+    min: 0.0
+    max: 0.2
+    log: false
+
+# Optional: Optuna configuration
+optuna:
+  n_trials: 3
+  direction: "minimize"
+  sampler: "GPSampler"
