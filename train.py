@@ -51,7 +51,7 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
     # Update SFTConfig with trial parameters
     args = SFTConfig(
         output_dir=trial_output_dir,
-        max_seq_length=config["training"]["max_length"],
+        max_length=config["training"]["max_length"],
         packing=config["training"]["packing"],
         num_train_epochs=config["training"]["num_train_epochs"],  # or use suggested value
         per_device_train_batch_size=config["training"]["per_device_train_batch_size"],  # or use suggested value
@@ -139,7 +139,7 @@ def train_final_model(model, tokenizer, dataset, config, best_params):
     # Create final SFTConfig with best parameters
     args = SFTConfig(
         output_dir=config["training"]["output_dir"],  # Use original output dir
-        max_seq_length=config["training"]["max_length"],
+        max_length=config["training"]["max_length"],
         packing=config["training"]["packing"],
         num_train_epochs=config["training"]["num_train_epochs"],
         per_device_train_batch_size=config["training"]["per_device_train_batch_size"],
