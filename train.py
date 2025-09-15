@@ -45,7 +45,7 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
     learning_rate = trial.suggest_float( "learning_rate",
         hp_space["learning_rate"]["min"], 
         hp_space["learning_rate"]["max"], 
-        hp_space["learning_rate"]["log"]
+        log=hp_space["learning_rate"].get("log", False)
     )
 
     optimizer = trial.suggest_categorical("optimizer", 
