@@ -14,7 +14,7 @@ import gc
 def create_conversation(sample):
     return {
         "messages": [
-            {"role": "user", "content": sample["questions"]},
+            {"role": "user", "content": sample["question"]},
             {"role": "assistant", "content": sample["chunk"]}
         ]
     }
