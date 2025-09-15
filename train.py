@@ -43,8 +43,8 @@ def objective(trial, model, tokenizer, dataset, config, temp_dir):
 
     # Suggest hyperparameters
     learning_rate = trial.suggest_float( "learning_rate",
-        hp_space["learning_rate"]["min"], 
-        hp_space["learning_rate"]["max"], 
+        float(hp_space["learning_rate"]["min"]), 
+        float(hp_space["learning_rate"]["max"]), 
         log=hp_space["learning_rate"].get("log", False)
     )
 
