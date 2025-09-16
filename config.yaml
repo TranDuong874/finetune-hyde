@@ -1,55 +1,45 @@
+# config.yaml - Memory optimized configuration
 training:
-  model: "google/gemma-3-270m-it"   # model checkpoint to load
-  output_dir: "./checkpoints"       # directory to save checkpoints
-  max_length: 256                   # Reduced from 512 to save memory
-  packing: false                    # whether to pack multiple samples per sequence
-  num_train_epochs: 2
-  per_device_train_batch_size: 1    # Keep small for memory efficiency
-  gradient_checkpointing: true      # Enable to save memory
-  optim: "adamw_torch"              # Avoid fused optimizers for memory
-  logging_steps: 1
+  model: "google/gemma-2-2b-it"  # Smaller model for limited memory
+  output_dir: "./results"
+  max_length: 512  # Reduced from potentially larger values
+  packing: true
+  num_train_epochs: 3
+  per_device_train_batch_size: 2  # Small batch size
+  gradient_checkpointing: true
+  optim: "adamw_torch"
+  logging_steps: 10
   save_strategy: "epoch"
   eval_strategy: "epoch"
-  learning_rate: 6e-5               # Conservative learning rate
-  fp16: true                        # Use fp16 to save memory
-  bf16: false                       # Use fp16 instead
-  lr_scheduler_type: "constant"
-  push_to_hub: false                # Disable during development
-  report_to: "none"                 # Disable reporting to save memory
-  fsdp: ""                          # Disable FSDP for single GPU
+  learning_rate: 2e-5
+  fp16: true  # Use half precision
+  bf16: false  # Use fp16 OR bf16, not both
+  lr_scheduler_type: "cosine"
+  push_to_hub: false
+  report_to: "none" 
+  fsdp: ""
 
 dataset:
-  data_path: "./data/train.csv"
-  test_size: 0.2
+  data_path: "your_data.csv"
   dataset_kwargs:
-    add_special_tokens: false
-    append_concat_token: true
+    trust_remote_code: false
 
-# Simplified hyperparameter space for memory constraints
+# Hyperparameter search space
 hyperparameter_space:
-  # Learning rate optimization (reduced range)
   learning_rate:
-    type: "float"
     min: 1e-6
     max: 1e-4
     log: true
-  
-  # Optimizer selection (memory-efficient options only)
   optimizer:
-    type: "categorical"
-    choices: ["adamw_torch", "sgd", "adafactor"]
-
-  per_device_train_batch_size:
-    type: "categorical"
-    choices: [1, 2]
-  
-  num_train_epochs:
-    type: "int"
+    choices: ["adamw_torch", "adamw_hf"]
+  num_train_epoch:
     min: 1
-    max: 2
-  
-# Reduced Optuna configuration for memory constraints
+    max: 3
+  per_device_train_batch_size:
+    choices: [1, 2, 4]  # Keep small for memory constraints
+
+# Optuna specific settings
 optuna:
-  n_trials: 3                       # Reduced from 6
-  direction: "minimize"
-  sampler: "GPSampler"
+  n_trials: 6
+  use_subset: true  # Use smaller dataset for hyperparameter search
+  subset_size: 1000  # Number of samples for HP search
