@@ -39,7 +39,6 @@ def model_context(model_name):
             model_name, 
             attn_implementation='eager',
             torch_dtype=torch.float16,  # Use half precision
-            device_map="auto",  # Automatic device placement
             low_cpu_mem_usage=True  # Reduce CPU memory usage during loading
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name)
