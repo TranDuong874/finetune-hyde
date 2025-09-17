@@ -36,10 +36,10 @@ def model_context(model_name):
         print(f"Loading model: {model_name}")
         # Load with memory-efficient settings
         model = AutoModelForCausalLM.from_pretrained(
-            model_name, 
-            attn_implementation='eager',
-            torch_dtype=torch.float16,  # Use half precision
-            low_cpu_mem_usage=True  # Reduce CPU memory usage during loading
+            model_name,
+            torch_dtype="auto",
+            device_map="auto",
+            attn_implementation="eager"
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         if tokenizer.pad_token is None:
