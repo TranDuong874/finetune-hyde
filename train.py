@@ -34,7 +34,7 @@ def model_context(model_name):
     tokenizer = None
     try:
         print(f"Loading model: {model_name}")
-        # Load with memory-efficient settings
+
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype="auto",
@@ -46,7 +46,6 @@ def model_context(model_name):
             tokenizer.pad_token = tokenizer.eos_token
         yield model, tokenizer
     finally:
-        # Ensure cleanup happens even if there's an exception
         if model is not None:
             del model
         if tokenizer is not None:
