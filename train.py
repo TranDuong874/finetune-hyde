@@ -337,11 +337,13 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
             # Convert messages to conversation format for Gemma
             conversation_text = ""
             for message in messages:
-                if message["role"] == "user":
+                if message["role"] == "system":
+                    conversation_text += f"<star_of_turn>system\n{message['content']}<end_of_turn>\n"
+                elif message["role"] == "user":
                     conversation_text += f"<start_of_turn>user\n{message['content']}<end_of_turn>\n"
                 elif message["role"] == "assistant":
                     conversation_text += f"<start_of_turn>model\n{message['content']}<end_of_turn>\n"
-            
+                
             processed_texts.append(conversation_text.strip())
         
         # Tokenize the processed texts
@@ -361,6 +363,7 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
     test_dataset = test_dataset.map(preprocess_for_sft, batched=True, remove_columns=['messages'])
     valid_dataset = valid_dataset.map(preprocess_for_sft, batched=True, remove_columns=['messages'])
     
+    print(train_dataset[:3])
     return {
         'train': train_dataset,
         'test': test_dataset,
