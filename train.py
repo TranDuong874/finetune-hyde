@@ -11,7 +11,7 @@ import os, sys
 import shutil
 import gc
 import json
-from eval import FullEvaluation
+from eval import PreSavingEvaluation
 from contextlib import contextmanager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
@@ -293,7 +293,7 @@ def train_final_model(model_name, dataset, config, best_params):
 
             # Directly evaluate using the saved model (no need to add messages again)
             with model_context(config['training']['output_dir']) as (model, tokenizer):
-                evaluator = FullEvaluation(model, tokenizer)
+                evaluator = PreSavingEvaluation(model, tokenizer)
                 per_sample_results = evaluator.evaluate(
                     dataset["test"], max_length=config["training"]["max_length"]
                 )
