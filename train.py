@@ -348,11 +348,10 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
             truncation=True,
             padding="max_length",
             max_length=config["training"]["max_length"],
-            return_tensors="pt"
         )
         
         # For SFT, labels should be the same as input_ids
-        tokenized["labels"] = tokenized["input_ids"].copy()
+        tokenized["labels"] = tokenized["input_ids"].clone()
         return tokenized
     
     # Apply preprocessing to ALL datasets
@@ -365,6 +364,7 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
         'test': test_dataset,
         'validation': valid_dataset
     }
+
 
 if __name__ == '__main__':
     # Load configuration
