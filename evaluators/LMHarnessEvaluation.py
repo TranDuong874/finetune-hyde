@@ -30,37 +30,17 @@ class LMHarnessEvaluation:
 
         os.makedirs(self.output_dir, exist_ok=True)
         self.task_manager = tasks.get_task_dict(self.task_names)
-
-
-
-    def make_serializable(self, d):
-        d = copy.deepcopy(d)
-        # remove all 'process_results', 'process_docs', etc.
-        for task in d.get("configs", {}):
-            for key in list(d["configs"][task].keys()):
-                if callable(d["configs"][task][key]):
-                    del d["configs"][task][key]
-        return d
-    
-    def convert_objs(self, o):
-        import numpy as np, torch
-
-        if isinstance(o, np.ndarray):
-            return o.tolist()
-        if isinstance(o, torch.Tensor):
-            return o.tolist()
-        if isinstance(o, np.generic):  # catches all NumPy scalar types
-            return o.item()            # converts to native Python int/float/bool
-        if isinstance(o, dict):
-            return {k: self.convert_objs(v) for k, v in o.items()}
-        if isinstance(o, list):
-            return [self.convert_objs(v) for v in o]
-        return o
-
         
-    def eval(self, output_filename=None):
-        """Run evaluation on either model name or in-memory model"""
-        # Wrap in-memory model if provided
+    def eval(self, output_filename="lm_harness_result"):
+        """Run evaluation using built-in output saving"""
+        
+        # Set output path - use output_filename or default
+        output_path = None
+        if output_filename:
+            output_path = os.path.join(self.output_dir, output_filename.replace('.json', ''))
+        else:
+            output_path = self.output_dir
+        
         if self.model_obj is not None:
             lm = HFLM(
                 pretrained=self.model_obj,
@@ -70,6 +50,8 @@ class LMHarnessEvaluation:
             results = evaluator.simple_evaluate(
                 model=lm,
                 tasks=self.task_names,
+                output_path=output_path,  # Built-in saving
+                log_samples=True,         # Optional: save individual samples
                 batch_size=self.batch_size,
                 apply_chat_template=self.apply_chat_template,
                 fewshot_as_multiturn=self.fewshot_as_multiturn,
@@ -78,11 +60,12 @@ class LMHarnessEvaluation:
                 limit=self.limit
             )
         else:
-            # Load by model name
             results = evaluator.simple_evaluate(
                 model="hf",
                 model_args=f"pretrained={self.model_name_or_obj},trust_remote_code=True",
                 tasks=self.task_names,
+                output_path=output_path,
+                log_samples=True,
                 batch_size=self.batch_size,
                 apply_chat_template=self.apply_chat_template,
                 fewshot_as_multiturn=self.fewshot_as_multiturn,
@@ -90,23 +73,6 @@ class LMHarnessEvaluation:
                 system_instruction=self.system_instruction,
                 limit=self.limit
             )
-
-        # print("="*50)
-        # print(results)
-        # print(type(results))
-        # print("="*50)
-
-        serializable_results = self.make_serializable(results)
-        json_ready = self.convert_objs(serializable_results)
-
-        with open("lm_harness_output.json", "w") as f:
-            json.dump(serializable_results, f, indent=2)
-
-        # Save results
-        if output_filename:
-            path = os.path.join(self.output_dir, output_filename)
-            with open(path, "w") as f:
-                json.dump(serializable_results, f, indent=2)
-            print(f"Results saved to {path}")
+        
+        print(f"Results automatically saved to {output_path}")
         return results
-    
