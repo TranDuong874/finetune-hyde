@@ -28,25 +28,6 @@ def create_conversation(sample):
         ]
     }
 
-def load_data(train_path, test_path, valid_path):
-    """Load train, test and validation datasets"""
-    print("Loading datasets...")
-    
-    train_dataset = load_dataset('json', data_files=train_path)['train']
-    test_dataset = load_dataset('json', data_files=test_path)['train']
-    valid_dataset = load_dataset('json', data_files=valid_path)['train']
-    
-    print(f"Loaded datasets with:")
-    print(f"- Train samples: {len(train_dataset)}\n- Example: {train_dataset[0]}")
-    print(f"- Test samples: {len(test_dataset)}\n- Example: {test_dataset[0]}")
-    print(f"- Validation samples: {len(valid_dataset)}\n- Example: {valid_dataset[0]}")
-    
-    return {
-        'train': train_dataset,
-        'test': test_dataset,
-        'validation': valid_dataset
-    }
-
 @contextmanager
 def model_context(model_name):
     """Context manager to ensure proper model cleanup"""
@@ -332,17 +313,65 @@ def train_final_model(model_name, dataset, config, best_params):
 
         return trainer
 
+def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, config):
+    """Load and preprocess all datasets"""
+    print("Loading datasets...")
+    
+    train_dataset = load_dataset('json', data_files=train_path)['train']
+    test_dataset = load_dataset('json', data_files=test_path)['train']
+    valid_dataset = load_dataset('json', data_files=valid_path)['train']
+    
+    print(f"Loaded datasets with:")
+    print(f"- Train samples: {len(train_dataset)}")
+    print(f"- Test samples: {len(test_dataset)}")
+    print(f"- Validation samples: {len(valid_dataset)}")
+    
+    def preprocess_for_sft(batch):
+        """Preprocess batch for supervised fine-tuning"""
+        processed_texts = []
+        
+        # Handle each sample in the batch
+        for messages in batch["messages"]:
+            # Convert messages to conversation format
+            conversation_text = ""
+            for message in messages:
+                if message["role"] == "user":
+                    conversation_text += f"<start_of_turn>user\n{message['content']}<end_of_turn>\n"
+                elif message["role"] == "assistant":
+                    conversation_text += f"<start_of_turn>model\n{message['content']}<end_of_turn>\n"
+            
+            processed_texts.append(conversation_text.strip())
+        
+        # Tokenize the processed texts
+        tokenized = tokenizer(
+            processed_texts,
+            truncation=True,
+            padding="max_length",
+            max_length=config["training"]["max_length"],
+            return_tensors="pt"
+        )
+        
+        # For SFT, labels should be the same as input_ids
+        tokenized["labels"] = tokenized["input_ids"].copy()
+        return tokenized
+    
+    # Apply preprocessing to ALL datasets
+    train_dataset = train_dataset.map(preprocess_for_sft, batched=True, remove_columns=['messages'])
+    test_dataset = test_dataset.map(preprocess_for_sft, batched=True, remove_columns=['messages'])
+    valid_dataset = valid_dataset.map(preprocess_for_sft, batched=True, remove_columns=['messages'])
+    
+    return {
+        'train': train_dataset,
+        'test': test_dataset,
+        'validation': valid_dataset
+    }
+
 if __name__ == '__main__':
     # Load configuration
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", 
-        type=str, 
-        default=None, 
-        help="Path to config.yaml"
-    )
-
+    parser.add_argument("--config", type=str, default=None, help="Path to config.yaml")
     args = parser.parse_args()
+    
     default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
     config_path = args.config if args.config else default_config_path
 
@@ -350,32 +379,22 @@ if __name__ == '__main__':
         config = yaml.safe_load(file)
 
     MODEL_NAME = config['training']['model']
-    
-    # Load train, test and validation data paths from config
     TRAIN_PATH = config['dataset']['data_train_path']
     TEST_PATH = config['dataset']['data_test_path']
     VALID_PATH = config['dataset']['data_valid_path']
     
-    # Load all datasets
-    dataset = load_data(TRAIN_PATH, TEST_PATH, VALID_PATH)
-
-    with model_context(MODEL_NAME) as (model, tokenizer):
-        def preprocess(batch):
-            # batch["messages"] is a list of lists of dicts
-            texts = [" ".join([m["content"] for m in messages]) for messages in batch["messages"]]
-
-            tokenized = tokenizer(
-                texts,
-                truncation=True,
-                padding="max_length",
-                max_length=config["training"]["max_length"],
-            )
-            tokenized["labels"] = tokenized["input_ids"].copy()
-            return tokenized
-
-    dataset['validation'] = dataset['validation'].map(preprocess, batched=True)
-    dataset['test'] = dataset['test'].map(preprocess, batched=True)
-
+    # Load tokenizer once for preprocessing
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
+    # Load and preprocess all datasets
+    dataset = load_data_and_preprocess(TRAIN_PATH, TEST_PATH, VALID_PATH, tokenizer, config)
+    
+    # Clean up tokenizer
+    del tokenizer
+    aggressive_cleanup()
+    
     # Run hyperparameter optimization
     optuna_config = config.get("optuna", {})
     n_trials = optuna_config.get("n_trials", 6)
@@ -384,7 +403,6 @@ if __name__ == '__main__':
         MODEL_NAME, dataset, config, n_trials=n_trials
     )
 
-    print(MODEL_NAME)
     # Train final model with best parameters
     if best_params is not None:
         final_trainer = train_final_model(MODEL_NAME, dataset, config, best_params)
@@ -394,12 +412,8 @@ if __name__ == '__main__':
         print("Hyperparameter optimization failed, training with default parameters")
         final_trainer = train_final_model(MODEL_NAME, dataset, config, {})
     
-    # ======================
-    # POST-SAVING EVALUATION
-    # ======================
+    # Post-saving evaluation
     eval_output_path = os.path.join(config["training"]["output_dir"], PER_SAMPLE_EVALUATION_FILENAME)
-
     df = pd.read_csv(eval_output_path)
-
     post_saving_evaluator = PostSavingEvaluation()
     post_saving_evaluator.evaluate(df, eval_output_path)
