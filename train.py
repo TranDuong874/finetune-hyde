@@ -320,8 +320,8 @@ def train_final_model(model_name, dataset, config, best_params):
         # =====================
         # LM-HARNESS EVALUATION
         # =====================
-        evaluator = LMHarnessEvaluation(model, tokenizer=tokenizer)
-        results = evaluator.eval("lm_harness_evaluation.json")
+        evaluator = LMHarnessEvaluation(config["lm_harness_evaluation"], model=model, tokenizer=tokenizer)
+        evaluator.eval('lm_harness_output.json')
 
         try:
             trainer.save_model()

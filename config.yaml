@@ -18,6 +18,18 @@ training:
   report_to: "none" 
   fsdp: ""
 
+lm_harness_evaluation:
+  model_name_or_obj: ""
+  device: "cuda"
+  output_dir: "results"
+  task_names:
+    - "hellaswag"
+    - "arc_challenge"
+    - "truthfulqa_mc2"
+  num_fewshot: 5
+  batch_size: 16
+  limit: 100   # for debugging, can be removed
+
 dataset:
   data_train_path: "/home/ubuntu/finetune/data/hyde/train.json"
   data_test_path: "/home/ubuntu/finetune/data/hyde/test.json"
