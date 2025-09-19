@@ -291,35 +291,34 @@ def train_final_model(model_name, dataset, config, best_params):
             trainer.save_model()
             print(f"Final model saved to: {config['training']['output_dir']}")
 
-
             def add_messages(batch):
-                batch["messages"] = [
-                    [
-                        {"role": "user", "content": sample["question"]},
-                        {"role": "assistant", "content": sample["chunk"]}
-                    ]
-                    for sample in batch
-                ]
+                messages = []
+                for q, c in zip(batch["question"], batch["chunk"]):
+                    messages.append([
+                        {"role": "user", "content": q},
+                        {"role": "assistant", "content": c}
+                    ])
+                batch["messages"] = messages
                 return batch
 
-            dataset['test'] = dataset['test'].map(add_messages, batched=True)
+            dataset["test"] = dataset["test"].map(add_messages, batched=True)
 
+            # Evaluate using the saved model
             with model_context(config['training']['output_dir']) as (model, tokenizer):
                 evaluator = FullEvaluation(model, tokenizer)
                 per_sample_results = evaluator.evaluate(
-                    dataset['test'], max_length=config['training']['max_length']
+                    dataset["test"], max_length=config["training"]["max_length"]
                 )
 
             # Save per-sample eval results
-            eval_output_path = os.path.join(config['training']['output_dir'], "per_sample_eval.json")
+            eval_output_path = os.path.join(config["training"]["output_dir"], "per_sample_eval.json")
             with open(eval_output_path, "w") as f:
                 json.dump(per_sample_results, f, indent=4)
 
             print(f"Per-sample evaluation saved to: {eval_output_path}")
-
         except Exception as e:
             print(f"Failed to save or evaluate model: {e}")
-        
+
         return trainer
 
 if __name__ == '__main__':
