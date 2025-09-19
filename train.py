@@ -346,6 +346,7 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
                 
             processed_texts.append(conversation_text.strip())
         
+        print(processed_texts[0])
         # Tokenize the processed texts
         tokenized = tokenizer(
             processed_texts,
@@ -363,7 +364,7 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
     test_dataset = test_dataset.map(preprocess_for_sft, batched=True, remove_columns=['messages'])
     valid_dataset = valid_dataset.map(preprocess_for_sft, batched=True, remove_columns=['messages'])
     
-    print(train_dataset[:3])
+    
     return {
         'train': train_dataset,
         'test': test_dataset,
