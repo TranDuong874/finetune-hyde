@@ -318,12 +318,12 @@ if __name__ == '__main__':
     dataset = load_data(TRAIN_PATH, TEST_PATH, VALID_PATH)
 
     with model_context(MODEL_NAME) as (model, tokenizer):
-        def preprocess(sample):
-            # Join messages into a single string per example
-            text = " ".join([m["content"] for m in sample["messages"]])
-            
+        def preprocess(batch):
+            # batch["messages"] is a list of lists of dicts
+            texts = [" ".join([m["content"] for m in messages]) for messages in batch["messages"]]
+
             tokenized = tokenizer(
-                text,
+                texts,
                 truncation=True,
                 padding="max_length",
                 max_length=config["training"]["max_length"],
