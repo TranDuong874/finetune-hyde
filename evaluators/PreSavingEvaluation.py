@@ -30,7 +30,7 @@ class PreSavingEvaluation:
         for i in tqdm(range(0, len(dataset), batch_size), desc="Evaluating"):
             batch = dataset[i:i+batch_size]
 
-            # If HuggingFace dataset slice: convert dict-of-lists → list-of-dicts
+            # If HuggingFace dataset slice: convert dict-of-lists -> list-of-dicts
             if isinstance(batch, dict):
                 batch = [{k: batch[k][j] for k in batch} for j in range(len(batch["messages"]))]
 
