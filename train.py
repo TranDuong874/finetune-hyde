@@ -280,15 +280,18 @@ def train_final_model(model_name, dataset, config, best_params):
             json.dump(test_results, f, indent=4)
         
         # =====================
-        # PER SAMPLE EVALUTAION
+        # PER SAMPLE EVALUATION
         # =====================
+        # Need to reconstruct the original dataset for evaluation
+        print("Loading original test data for per-sample evaluation...")
+        original_test_dataset = load_dataset('json', data_files=config['dataset']['data_test_path'])['train']
 
         model = trainer.model
         tokenizer = trainer.tokenizer
 
         evaluator = PreSavingEvaluation(model, tokenizer)
         per_sample_results = evaluator.evaluate(
-            dataset["test"], max_length=config["training"]["max_length"]
+            original_test_dataset, max_length=config["training"]["max_length"]
         )
 
         df = pd.DataFrame(per_sample_results)
@@ -309,7 +312,6 @@ def train_final_model(model_name, dataset, config, best_params):
             print(f"Final model saved to: {config['training']['output_dir']}")
         except Exception as e:
             print(f"Failed to save or evaluate model: {e}")
-
 
         return trainer
 
@@ -332,7 +334,7 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
         
         # Handle each sample in the batch
         for messages in batch["messages"]:
-            # Convert messages to conversation format
+            # Convert messages to conversation format for Gemma
             conversation_text = ""
             for message in messages:
                 if message["role"] == "user":
@@ -350,8 +352,8 @@ def load_data_and_preprocess(train_path, test_path, valid_path, tokenizer, confi
             max_length=config["training"]["max_length"],
         )
         
-        # For SFT, labels should be the same as input_ids
-        tokenized["labels"] = tokenized["input_ids"].clone()
+        # For SFT, labels should be the same as input_ids (use copy() for lists)
+        tokenized["labels"] = tokenized["input_ids"].copy()
         return tokenized
     
     # Apply preprocessing to ALL datasets
