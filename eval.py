@@ -28,8 +28,13 @@ class FullEvaluation:
         # Create batches
         for i in tqdm(range(0, len(dataset), batch_size), desc="Evaluating"):
             batch = dataset[i:i+batch_size]
-            batch_texts = [" ".join([m["content"] for m in sample["messages"]]) for sample in batch]
-            batch_targets = [" ".join([m["content"] for m in sample["messages"] if m["role"]=="assistant"]) for sample in batch]
+
+            # If HuggingFace dataset slice: convert dict-of-lists → list-of-dicts
+            if isinstance(batch, dict):
+                batch = [{k: batch[k][j] for k in batch} for j in range(len(batch["messages"]))]
+
+            batch_texts = [" ".join(m["content"] for m in sample["messages"]) for sample in batch]
+            batch_targets = [" ".join(m["content"] for m in sample["messages"] if m["role"] == "assistant") for sample in batch]
 
             # Tokenize batch
             inputs = self.tokenizer(batch_texts, return_tensors="pt", padding=True, truncation=True).to(self.device)
