@@ -78,6 +78,10 @@ class LMHarnessEvaluation:
                 limit=self.limit
             )
 
+        print("="*50)
+        print(results)
+        print(type(results))
+        print("="*50)
         serializable_results = self._to_json_serializable(results)
 
         # Save results
