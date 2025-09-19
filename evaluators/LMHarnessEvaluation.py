@@ -41,18 +41,22 @@ class LMHarnessEvaluation:
                 if callable(d["configs"][task][key]):
                     del d["configs"][task][key]
         return d
-
+    
     def convert_objs(self, o):
         import numpy as np, torch
+
         if isinstance(o, np.ndarray):
             return o.tolist()
         if isinstance(o, torch.Tensor):
             return o.tolist()
+        if isinstance(o, np.generic):  # catches all NumPy scalar types
+            return o.item()            # converts to native Python int/float/bool
         if isinstance(o, dict):
             return {k: self.convert_objs(v) for k, v in o.items()}
         if isinstance(o, list):
             return [self.convert_objs(v) for v in o]
         return o
+
         
     def eval(self, output_filename=None):
         """Run evaluation on either model name or in-memory model"""
@@ -105,3 +109,4 @@ class LMHarnessEvaluation:
                 json.dump(serializable_results, f, indent=2)
             print(f"Results saved to {path}")
         return results
+    
