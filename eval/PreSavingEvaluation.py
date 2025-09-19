@@ -65,8 +65,8 @@ class PreSavingEvaluation:
             for j in range(len(batch)):
                 loss_val = per_sample_loss[j].item()
                 results.append({
-                    "input": batch_texts[j],
-                    "target": batch_targets[j],
+                    "question": batch_texts[j],
+                    "answer": batch_targets[j],
                     "prediction": predictions[j],
                     "loss": loss_val,
                     "perplexity": math.exp(loss_val) if loss_val < 20 else float("inf")  # safe guard
