@@ -7,10 +7,12 @@ from trl import SFTConfig, SFTTrainer
 import numpy as np
 import yaml
 import torch
-import os
+import os, sys
 import shutil
 import gc
 from contextlib import contextmanager
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def create_conversation(sample):
     return {
@@ -20,12 +22,24 @@ def create_conversation(sample):
         ]
     }
 
-def load_data(data_path, test_size=0.2):
-    dataset = load_dataset('csv', data_files=data_path, split='train')
-    # dataset = dataset.select(range(100))  # sanity check
-    dataset = dataset.map(create_conversation, remove_columns=dataset.features, batched=False)
-    dataset = dataset.train_test_split(test_size=test_size, shuffle=True)
-    return dataset
+def load_data(train_path, test_path, valid_path):
+    """Load train, test and validation datasets"""
+    print("Loading datasets...")
+    
+    train_dataset = load_dataset('json', data_files=train_path)['train']
+    test_dataset = load_dataset('json', data_files=test_path)['train']
+    valid_dataset = load_dataset('json', data_files=valid_path)['train']
+    
+    print(f"Loaded datasets with:")
+    print(f"- Train samples: {len(train_dataset)}\n- Example: {train_dataset[0]}")
+    print(f"- Test samples: {len(test_dataset)}\n- Example: {test_dataset[0]}")
+    print(f"- Validation samples: {len(valid_dataset)}\n- Example: {valid_dataset[0]}")
+    
+    return {
+        'train': train_dataset,
+        'test': test_dataset,
+        'validation': valid_dataset
+    }
 
 @contextmanager
 def model_context(model_name):
@@ -103,15 +117,7 @@ def objective(trial, model_name, dataset, config, temp_dir):
         with model_context(model_name) as (model, tokenizer):
             # Reduce dataset size for hyperparameter search (optional)
             train_dataset = dataset['train']
-            eval_dataset = dataset['test']
-            
-            # Optional: Use smaller subset for faster hyperparameter search
-            if config.get("optuna", {}).get("use_subset", False):
-                subset_size = config["optuna"].get("subset_size", 1000)
-                if len(train_dataset) > subset_size:
-                    train_dataset = train_dataset.select(range(subset_size))
-                if len(eval_dataset) > subset_size // 4:
-                    eval_dataset = eval_dataset.select(range(subset_size // 4))
+            eval_dataset = dataset['validation']
             
             # Memory-optimized training config
             args = SFTConfig(
@@ -256,6 +262,10 @@ def train_final_model(model_name, dataset, config, best_params):
             report_to=config["training"]["report_to"],
             dataset_kwargs=config["dataset"]["dataset_kwargs"],
             fsdp=config["training"]["fsdp"],
+            eval_steps=None,  # Evaluate at the end of each epoch
+            metric_for_best_model="eval_loss",
+            load_best_model_at_end=True,
+            greater_is_better=False,
         )
         
         # Create final trainer
@@ -263,16 +273,16 @@ def train_final_model(model_name, dataset, config, best_params):
             model=model,
             args=args,
             train_dataset=dataset['train'],
-            eval_dataset=dataset['test'],
+            eval_dataset=dataset['validation'],  # Use validation set for evaluation
             processing_class=tokenizer,
         )
         
         # Train final model
         trainer.train()
         
-        # Final evaluation
-        final_eval_results = trainer.evaluate()
-        print(f"Final model evaluation results: {final_eval_results}")
+        # Final evaluation on test set
+        test_results = trainer.evaluate(dataset['test'])
+        print(f"Final test results: {test_results}")
         
         # Save the final model
         trainer.save_model()
@@ -282,15 +292,18 @@ def train_final_model(model_name, dataset, config, best_params):
 
 if __name__ == '__main__':
     # Load configuration
-    with open('config.yaml', 'r') as file:
+    with open(f'{os.path.dirname(os.path.abspath(__file__))}/config.yaml', 'r') as file:
         config = yaml.safe_load(file)
 
     MODEL_NAME = config['training']['model']
-    DATA_PATH = config['dataset']['data_path']
     
-    # Load data (but not model yet - we'll load it fresh for each trial)
-    print("Loading data...")
-    dataset = load_data(DATA_PATH)
+    # Load train, test and validation data paths from config
+    TRAIN_PATH = config['dataset']['data_train_path']
+    TEST_PATH = config['dataset']['data_test_path']
+    VALID_PATH = config['dataset']['data_valid_path']
+    
+    # Load all datasets
+    dataset = load_data(TRAIN_PATH, TEST_PATH, VALID_PATH)
     
     # Run hyperparameter optimization
     optuna_config = config.get("optuna", {})

@@ -19,7 +19,9 @@ training:
   fsdp: ""
 
 dataset:
-  data_path: "/kaggle/input/hyde-finetuning-vchatbot/final_cq.csv"
+  data_train_path: "/home/ubuntu/finetune/data/hyde/train.json"
+  data_test_path: "/home/ubuntu/finetune/data/hyde/test.json"
+  data_valid_path: "/home/ubuntu/finetune/data/hyde/valid.json"
   dataset_kwargs:
     trust_remote_code: false
 
@@ -27,7 +29,7 @@ dataset:
 hyperparameter_space:
   learning_rate:
     min: 1e-6
-    max: 1e-5
+    max: 1e-4
     log: true
   optimizer:
     choices: ["adamw_torch", "sgd", "adafactor"]
@@ -39,6 +41,4 @@ hyperparameter_space:
 
 # Optuna specific settings
 optuna:
-  n_trials: 6
-  use_subset: false  
-  subset_size: 1000
+  n_trials: 12
