@@ -12,7 +12,7 @@ import shutil
 import gc
 from contextlib import contextmanager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+import argparse
 
 def create_conversation(sample):
     return {
@@ -292,7 +292,19 @@ def train_final_model(model_name, dataset, config, best_params):
 
 if __name__ == '__main__':
     # Load configuration
-    with open(f'{os.path.dirname(os.path.abspath(__file__))}/config.yaml', 'r') as file:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config", 
+        type=str, 
+        default=None, 
+        help="Path to config.yaml"
+    )
+
+    args = parser.parse_args()
+    default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
+    config_path = args.config if args.config else default_config_path
+
+    with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
 
     MODEL_NAME = config['training']['model']
