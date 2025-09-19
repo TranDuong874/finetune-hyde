@@ -316,7 +316,22 @@ if __name__ == '__main__':
     
     # Load all datasets
     dataset = load_data(TRAIN_PATH, TEST_PATH, VALID_PATH)
-    
+
+    with model_context(MODEL_NAME) as (model, tokenizer):
+        def preprocess(sample):
+            tokenized = tokenizer(
+                sample["messages"],
+                truncation=True,
+                padding="max_length",
+                max_length=config["training"]["max_length"],
+            )
+            tokenized["labels"] = tokenized["input_ids"].copy()
+            return tokenized
+
+        dataset['validation'] = dataset['validation'].map(preprocess, batched=True)
+        dataset['test'] = dataset['test'].map(preprocess, batched=True)
+
+
     # Run hyperparameter optimization
     optuna_config = config.get("optuna", {})
     n_trials = optuna_config.get("n_trials", 6)
@@ -324,7 +339,7 @@ if __name__ == '__main__':
     best_params = run_hyperparameter_optimization(
         MODEL_NAME, dataset, config, n_trials=n_trials
     )
-    
+
     # Train final model with best parameters
     if best_params is not None:
         final_trainer = train_final_model(MODEL_NAME, dataset, config, best_params)
