@@ -383,6 +383,7 @@ if __name__ == '__main__':
         MODEL_NAME, dataset, config, n_trials=n_trials
     )
 
+    print(MODEL_NAME)
     # Train final model with best parameters
     if best_params is not None:
         final_trainer = train_final_model(MODEL_NAME, dataset, config, best_params)
