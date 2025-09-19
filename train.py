@@ -331,6 +331,9 @@ if __name__ == '__main__':
             tokenized["labels"] = tokenized["input_ids"].copy()
             return tokenized
 
+    dataset['validation'] = dataset['validation'].map(preprocess, batched=True)
+    dataset['test'] = dataset['test'].map(preprocess, batched=True)
+
 
     # Run hyperparameter optimization
     optuna_config = config.get("optuna", {})
