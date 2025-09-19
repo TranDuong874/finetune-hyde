@@ -319,17 +319,17 @@ if __name__ == '__main__':
 
     with model_context(MODEL_NAME) as (model, tokenizer):
         def preprocess(sample):
+            # Join messages into a single string per example
+            text = " ".join([m["content"] for m in sample["messages"]])
+            
             tokenized = tokenizer(
-                sample["messages"],
+                text,
                 truncation=True,
                 padding="max_length",
                 max_length=config["training"]["max_length"],
             )
             tokenized["labels"] = tokenized["input_ids"].copy()
             return tokenized
-
-        dataset['validation'] = dataset['validation'].map(preprocess, batched=True)
-        dataset['test'] = dataset['test'].map(preprocess, batched=True)
 
 
     # Run hyperparameter optimization
