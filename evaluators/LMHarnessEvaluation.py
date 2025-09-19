@@ -2,6 +2,7 @@ from lm_eval import evaluator, tasks
 from lm_eval.models.huggingface import HFLM
 import os, json
 import torch
+import numpy as np
 
 class LMHarnessEvaluation:
     def __init__(self, cfg, model=None, tokenizer=None):
