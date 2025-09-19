@@ -10,6 +10,8 @@ import torch
 import os, sys
 import shutil
 import gc
+import json
+from eval import FullEvaluation
 from contextlib import contextmanager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
@@ -284,9 +286,27 @@ def train_final_model(model_name, dataset, config, best_params):
         test_results = trainer.evaluate(dataset['test'])
         print(f"Final test results: {test_results}")
         
-        # Save the final model
-        trainer.save_model()
-        print(f"Final model saved to: {config['training']['output_dir']}")
+        try:
+            # Save the final model
+            trainer.save_model()
+            print(f"Final model saved to: {config['training']['output_dir']}")
+
+            # Evaluate using the saved model in a context
+            with model_context(config['training']['output_dir']) as (model, tokenizer):
+                evaluator = FullEvaluation(model, tokenizer)
+                per_sample_results = evaluator.evaluate(
+                    dataset['test'], max_length=config['training']['max_length']
+                )
+
+            # Save per-sample eval results
+            eval_output_path = os.path.join(config['training']['output_dir'], "per_sample_eval.json")
+            with open(eval_output_path, "w") as f:
+                json.dump(per_sample_results, f, indent=4)
+
+            print(f"Per-sample evaluation saved to: {eval_output_path}")
+
+        except Exception as e:
+            print(f"Failed to save or evaluate model: {e}")
         
         return trainer
 
@@ -333,7 +353,6 @@ if __name__ == '__main__':
 
     dataset['validation'] = dataset['validation'].map(preprocess, batched=True)
     dataset['test'] = dataset['test'].map(preprocess, batched=True)
-
 
     # Run hyperparameter optimization
     optuna_config = config.get("optuna", {})
