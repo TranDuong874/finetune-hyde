@@ -30,18 +30,20 @@ class LMHarnessEvaluation:
         self.task_manager = tasks.get_task_dict(self.task_names)
 
     def _to_json_serializable(self, obj):
-        if isinstance(obj, (np.integer, torch.IntegerTensor)):
+        if isinstance(obj, (np.integer,)):
             return int(obj)
-        elif isinstance(obj, (np.floating, torch.FloatTensor)):
+        elif isinstance(obj, (np.floating,)):
             return float(obj)
-        elif isinstance(obj, (np.ndarray, torch.Tensor)):
-            return obj.tolist()
+        elif isinstance(obj, torch.Tensor):
+            # Convert to list of Python scalars
+            return obj.detach().cpu().tolist()
         elif isinstance(obj, dict):
-            return {k: to_json_serializable(v) for k, v in obj.items()}
+            return {k: self._to_json_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
-            return [to_json_serializable(x) for x in obj]
+            return [self._to_json_serializable(x) for x in obj]
         else:
             return obj
+
     
     def eval(self, output_filename=None):
         """Run evaluation on either model name or in-memory model"""
