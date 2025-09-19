@@ -291,17 +291,18 @@ def train_final_model(model_name, dataset, config, best_params):
             trainer.save_model()
             print(f"Final model saved to: {config['training']['output_dir']}")
 
-            def add_messages(batch):
-                messages = []
-                for q, c in zip(batch["question"], batch["chunk"]):
-                    messages.append([
-                        {"role": "user", "content": q},
-                        {"role": "assistant", "content": c}
-                    ])
-                batch["messages"] = messages
-                return batch
+            if "messages" not in dataset["test"].column_names:
+                def add_messages(batch):
+                    messages = []
+                    for q, c in zip(batch["question"], batch["chunk"]):
+                        messages.append([
+                            {"role": "user", "content": q},
+                            {"role": "assistant", "content": c}
+                        ])
+                    batch["messages"] = messages
+                    return batch
 
-            dataset["test"] = dataset["test"].map(add_messages, batched=True)
+                dataset["test"] = dataset["test"].map(add_messages, batched=True)
 
             # Evaluate using the saved model
             with model_context(config['training']['output_dir']) as (model, tokenizer):
