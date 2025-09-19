@@ -12,7 +12,7 @@ class PostSavingEvaluation:
 
         # Assuming df has columns: "reference" and "prediction"
         for _, row in df.iterrows():
-            reference = str(row["reference"])
+            reference = str(row["answer"])
             prediction = str(row["prediction"])
 
             # ROUGE-L
