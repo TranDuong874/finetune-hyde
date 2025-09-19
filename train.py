@@ -296,35 +296,32 @@ def train_final_model(model_name, dataset, config, best_params):
         output_path = os.path.join(trainer.args.output_dir, 'overal_evaluation.json')
         with open(output_path, "w") as f:
             json.dump(test_results, f, indent=4)
-
-        # =====================
-        # PER SAMPLE EVALUTAION
-        # =====================
-
-        with model_context(config['training']['output_dir']) as (model, tokenizer):
-            evaluator = PreSavingEvaluation(model, tokenizer)
-            per_sample_results = evaluator.evaluate(
-                dataset["test"], max_length=config["training"]["max_length"]
-            )
-
-            df = pd.DataFrame(per_sample_results)
-
-            # Save per-sample eval results
-            eval_output_path = os.path.join(config["training"]["output_dir"], PER_SAMPLE_EVALUATION_FILENAME)
-
-            df.to_csv(eval_output_path, index=False, encoding="utf-8")
-
-        print(f"Per-sample evaluation saved to: {eval_output_path}")
-
         # =====================
         # LM-HARNESS EVALUATION
         # =====================
 
         try:
-            # Save the final model
             trainer.save_model()
             print(f"Final model saved to: {config['training']['output_dir']}")
 
+            # =====================
+            # PER SAMPLE EVALUTAION
+            # =====================
+
+            with model_context(config['training']['output_dir']) as (model, tokenizer):
+                evaluator = PreSavingEvaluation(model, tokenizer)
+                per_sample_results = evaluator.evaluate(
+                    dataset["test"], max_length=config["training"]["max_length"]
+                )
+
+                df = pd.DataFrame(per_sample_results)
+
+                # Save per-sample eval results
+                eval_output_path = os.path.join(config["training"]["output_dir"], PER_SAMPLE_EVALUATION_FILENAME)
+
+                df.to_csv(eval_output_path, index=False, encoding="utf-8")
+
+            print(f"Per-sample evaluation saved to: {eval_output_path}")
         except Exception as e:
             print(f"Failed to save or evaluate model: {e}")
 
