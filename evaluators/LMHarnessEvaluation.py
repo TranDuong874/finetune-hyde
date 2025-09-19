@@ -4,6 +4,8 @@ import os, json
 import torch
 import numpy as np
 
+import copy
+
 class LMHarnessEvaluation:
     def __init__(self, cfg, model=None, tokenizer=None):
         """
@@ -29,22 +31,29 @@ class LMHarnessEvaluation:
         os.makedirs(self.output_dir, exist_ok=True)
         self.task_manager = tasks.get_task_dict(self.task_names)
 
-    def _to_json_serializable(self, obj):
-        if isinstance(obj, (np.integer,)):
-            return int(obj)
-        elif isinstance(obj, (np.floating,)):
-            return float(obj)
-        elif isinstance(obj, torch.Tensor):
-            # Convert to list of Python scalars
-            return obj.detach().cpu().tolist()
-        elif isinstance(obj, dict):
-            return {k: self._to_json_serializable(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [self._to_json_serializable(x) for x in obj]
-        else:
-            return obj
 
-    
+
+    def make_serializable(self, d):
+        d = copy.deepcopy(d)
+        # remove all 'process_results', 'process_docs', etc.
+        for task in d.get("configs", {}):
+            for key in list(d["configs"][task].keys()):
+                if callable(d["configs"][task][key]):
+                    del d["configs"][task][key]
+        return d
+
+    def convert_objs(self, o):
+        import numpy as np, torch
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        if isinstance(o, torch.Tensor):
+            return o.tolist()
+        if isinstance(o, dict):
+            return {k: self.convert_objs(v) for k, v in o.items()}
+        if isinstance(o, list):
+            return [self.convert_objs(v) for v in o]
+        return o
+        
     def eval(self, output_filename=None):
         """Run evaluation on either model name or in-memory model"""
         # Wrap in-memory model if provided
@@ -82,7 +91,12 @@ class LMHarnessEvaluation:
         print(results)
         print(type(results))
         print("="*50)
-        serializable_results = self._to_json_serializable(results)
+
+        serializable_results = self.make_serializable(results)
+        json_ready = self.convert_objs(serializable_results)
+
+        with open("lm_harness_output.json", "w") as f:
+            json.dump(serializable_results, f, indent=2)
 
         # Save results
         if output_filename:
