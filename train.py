@@ -11,7 +11,7 @@ import os, sys
 import shutil
 import gc
 import json
-from eval import PreSavingEvaluation, PostSavingEvaluation, LMHarnessEvaluation
+from evaluators import PreSavingEvaluation, PostSavingEvaluation, LMHarnessEvaluation
 from contextlib import contextmanager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
