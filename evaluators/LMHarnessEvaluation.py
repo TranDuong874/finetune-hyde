@@ -3,7 +3,6 @@ from lm_eval.models.huggingface import HFLM
 import os, json
 import torch
 import numpy as np
-
 import copy
 
 class LMHarnessEvaluation:
@@ -31,18 +30,8 @@ class LMHarnessEvaluation:
         os.makedirs(self.output_dir, exist_ok=True)
         self.task_manager = tasks.get_task_dict(self.task_names)
 
-
-
-    def make_serializable(self, d):
-        d = copy.deepcopy(d)
-        # remove all 'process_results', 'process_docs', etc.
-        for task in d.get("configs", {}):
-            for key in list(d["configs"][task].keys()):
-                if callable(d["configs"][task][key]):
-                    del d["configs"][task][key]
-        return d
-    
     def convert_objs(self, o):
+        """Comprehensive object conversion for JSON serialization"""
         import numpy as np
         import torch
         
@@ -108,7 +97,10 @@ class LMHarnessEvaluation:
         
         # Handle bytes
         if isinstance(o, bytes):
-            return o.decode('utf-8', errors='replace')
+            try:
+                return o.decode('utf-8')
+            except UnicodeDecodeError:
+                return o.decode('utf-8', errors='replace')
         
         # Handle sets (convert to list)
         if isinstance(o, set):
@@ -130,7 +122,7 @@ class LMHarnessEvaluation:
         if hasattr(o, '__iter__') and not isinstance(o, (str, bytes)):
             try:
                 return [self.convert_objs(item) for item in o]
-            except TypeError:
+            except (TypeError, AttributeError):
                 # If iteration fails, convert to string
                 return str(o)
         
@@ -142,21 +134,50 @@ class LMHarnessEvaluation:
         if hasattr(o, '__dict__') and not isinstance(o, type):
             try:
                 return {k: self.convert_objs(v) for k, v in o.__dict__.items() 
-                    if not k.startswith('_')}
+                       if not k.startswith('_')}
             except:
                 return str(o)
         
-        # For any other type, try to convert to string
+        # For any other type, try to see if it's already JSON serializable
         try:
-            # Try to see if it's JSON serializable first
-            import json
             json.dumps(o)
             return o
         except (TypeError, ValueError):
             # If not serializable, convert to string
             return str(o)
 
+    def make_serializable(self, d):
+        """Remove non-serializable objects and apply conversion"""
+        d = copy.deepcopy(d)
         
+        # First pass: remove known problematic keys
+        problematic_keys = [
+            'process_results', 'process_docs', 'doc_to_text', 'doc_to_target',
+            'filter_list', 'metric_list', 'output_type', 'target_delimiter',
+            'fewshot_delimiter', 'generation_kwargs'
+        ]
+        
+        def clean_dict(obj):
+            if isinstance(obj, dict):
+                # Remove problematic keys
+                for key in list(obj.keys()):
+                    if any(prob_key in str(key).lower() for prob_key in problematic_keys):
+                        del obj[key]
+                    elif callable(obj[key]):
+                        del obj[key]
+                    else:
+                        obj[key] = clean_dict(obj[key])
+                return obj
+            elif isinstance(obj, list):
+                return [clean_dict(item) for item in obj]
+            else:
+                return obj
+        
+        d = clean_dict(d)
+        
+        # Second pass: convert all remaining objects
+        return self.convert_objs(d)
+
     def eval(self, output_filename=None):
         """Run evaluation on either model name or in-memory model"""
         # Wrap in-memory model if provided
@@ -190,22 +211,54 @@ class LMHarnessEvaluation:
                 limit=self.limit
             )
 
-        print("="*50)
-        print(results)
-        print(type(results))
-        print("="*50)
-
-        serializable_results = self.make_serializable(results)
-        json_ready = self.convert_objs(serializable_results)
-
-        with open("lm_harness_output.json", "w") as f:
-            json.dump(serializable_results, f, indent=2)
-
-        # Save results
-        if output_filename:
-            path = os.path.join(self.output_dir, output_filename)
-            with open(path, "w") as f:
+        # Process results for serialization
+        try:
+            serializable_results = self.make_serializable(results)
+            
+            # Test serialization before saving
+            json.dumps(serializable_results)
+            
+            # Save to default location
+            default_path = os.path.join(self.output_dir, "lm_harness_output.json")
+            with open(default_path, "w") as f:
                 json.dump(serializable_results, f, indent=2)
-            print(f"Results saved to {path}")
+            print(f"Results saved to {default_path}")
+            
+            # Save to custom location if specified
+            if output_filename:
+                custom_path = os.path.join(self.output_dir, output_filename)
+                with open(custom_path, "w") as f:
+                    json.dump(serializable_results, f, indent=2)
+                print(f"Results also saved to {custom_path}")
+                
+        except Exception as e:
+            print(f"Error during serialization: {e}")
+            print("Attempting fallback serialization...")
+            
+            # Fallback: save only the essential results
+            essential_results = {
+                'results': {},
+                'config': {
+                    'model': self.model_name_or_obj if self.model_obj is None else "in_memory_model",
+                    'tasks': self.task_names,
+                    'num_fewshot': self.num_fewshot,
+                    'batch_size': self.batch_size
+                }
+            }
+            
+            # Extract just the numeric results
+            if 'results' in results:
+                for task_name, task_results in results['results'].items():
+                    essential_results['results'][task_name] = {}
+                    for metric, value in task_results.items():
+                        try:
+                            essential_results['results'][task_name][metric] = self.convert_objs(value)
+                        except:
+                            essential_results['results'][task_name][metric] = str(value)
+            
+            fallback_path = os.path.join(self.output_dir, "lm_harness_fallback.json")
+            with open(fallback_path, "w") as f:
+                json.dump(essential_results, f, indent=2)
+            print(f"Essential results saved to {fallback_path}")
+        
         return results
-    
