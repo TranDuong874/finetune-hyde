@@ -11,11 +11,12 @@ import os, sys
 import shutil
 import gc
 import json
-from eval import PreSavingEvaluation, PostSavingEvaluation
+from eval import PreSavingEvaluation, PostSavingEvaluation, LMHarnessEvaluation
 from contextlib import contextmanager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import math
+
 
 PER_SAMPLE_EVALUATION_FILENAME = 'per_sample_evaluation.csv'
 
@@ -293,7 +294,7 @@ def train_final_model(model_name, dataset, config, best_params):
         test_results["perplexity"] = math.exp(test_results["eval_loss"])
         print(f"Final test results: {test_results}")
         
-        output_path = os.path.join(trainer.args.output_dir, 'overal_evaluation.json')
+        output_path = os.path.join(trainer.args.output_dir, 'overall_evaluation.json')
         with open(output_path, "w") as f:
             json.dump(test_results, f, indent=4)
         
@@ -319,12 +320,12 @@ def train_final_model(model_name, dataset, config, best_params):
         # =====================
         # LM-HARNESS EVALUATION
         # =====================
+        evaluator = LMHarnessEvaluation(model, tokenizer=tokenizer)
+        results = evaluator.eval("lm_harness_evaluation.json")
 
         try:
             trainer.save_model()
             print(f"Final model saved to: {config['training']['output_dir']}")
-
-            print(f"Per-sample evaluation saved to: {eval_output_path}")
         except Exception as e:
             print(f"Failed to save or evaluate model: {e}")
 
