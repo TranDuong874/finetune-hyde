@@ -91,10 +91,10 @@ class LMHarnessEvaluation:
                 limit=self.limit
             )
 
-        print("="*50)
-        print(results)
-        print(type(results))
-        print("="*50)
+        # print("="*50)
+        # print(results)
+        # print(type(results))
+        # print("="*50)
 
         serializable_results = self.make_serializable(results)
         json_ready = self.convert_objs(serializable_results)
