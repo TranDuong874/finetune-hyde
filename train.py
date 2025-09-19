@@ -291,7 +291,19 @@ def train_final_model(model_name, dataset, config, best_params):
             trainer.save_model()
             print(f"Final model saved to: {config['training']['output_dir']}")
 
-            # Evaluate using the saved model in a context
+
+            def add_messages(batch):
+                batch["messages"] = [
+                    [
+                        {"role": "user", "content": sample["question"]},
+                        {"role": "assistant", "content": sample["chunk"]}
+                    ]
+                    for sample in batch
+                ]
+                return batch
+
+            dataset['test'] = dataset['test'].map(add_messages, batched=True)
+
             with model_context(config['training']['output_dir']) as (model, tokenizer):
                 evaluator = FullEvaluation(model, tokenizer)
                 per_sample_results = evaluator.evaluate(
