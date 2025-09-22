@@ -55,20 +55,18 @@ def model_context(model_name):
     try:
         print(f"Loading model: {model_name}")
 
-        local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
-
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype="auto",
-            # device_map="auto",
             attn_implementation="eager"
-        ).to(device)
-        
+        )
+
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
+
         yield model, tokenizer
+
     finally:
         if model is not None:
             del model
@@ -78,6 +76,7 @@ def model_context(model_name):
             torch.cuda.empty_cache()
         gc.collect()
         print("Model cleaned up from memory")
+
 
 def aggressive_cleanup():
     """Aggressive memory cleanup"""
