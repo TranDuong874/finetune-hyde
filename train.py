@@ -385,9 +385,9 @@ if __name__ == '__main__':
     dataset['train'] = dataset['train'].map(preprocess, batched=True)
     dataset['validation'] = dataset['validation'].map(preprocess, batched=True)
     dataset['test'] = dataset['test'].map(preprocess, batched=True)
-    print(f"Sample train after preprocessing: {dataset['train']["texts"][0]}")
-    print(f"Sample valid after preprocessing: {dataset['validation']["texts"][0]}")
-    print(f"Sample test after preprocessing: {dataset['test']["texts"][0]}")
+    print(f"Sample train after preprocessing: {dataset['train']['texts'][0]}")
+    print(f"Sample valid after preprocessing: {dataset['validation']['texts'][0]}")
+    print(f"Sample test after preprocessing: {dataset['test']['texts'][0]}")
 
     # Run hyperparameter optimization
     optuna_config = config.get("optuna", {})
