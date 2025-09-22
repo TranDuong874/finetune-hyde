@@ -164,7 +164,7 @@ def objective(trial, model_name, dataset, config, temp_dir):
                 train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 processing_class=tokenizer,
-                strategy="ddp"
+                # strategy="ddp"
             )
             
             # Train the model
@@ -284,7 +284,7 @@ def train_final_model(model_name, dataset, config, best_params):
             train_dataset=dataset['train'],
             eval_dataset=dataset['validation'],  # Use validation set for evaluation
             processing_class=tokenizer,
-            strategy="ddp"
+            # strategy="ddp"
         )
         
         # Train final model
