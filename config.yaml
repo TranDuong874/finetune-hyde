@@ -44,7 +44,7 @@ hyperparameter_space:
     max: 1e-4
     log: true
   optimizer:
-    choices: ["adamw_torch", "sgd", "adafactor"]
+    choices: ["adamw_torch", "adafactor"]
   num_train_epoch:
     min: 1
     max: 3
