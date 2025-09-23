@@ -16,7 +16,9 @@ from contextlib import contextmanager
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import math
-
+import torch, os
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OMP_NUM_THREADS"] = "0,1"
 
 PER_SAMPLE_EVALUATION_FILENAME = 'per_sample_evaluation.csv'
 
@@ -58,15 +60,13 @@ def model_context(model_name):
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype="auto",
-            attn_implementation="eager"
+            attn_implementation="eager",
+            use_cache=False
         )
-
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-
         yield model, tokenizer
-
     finally:
         if model is not None:
             del model
@@ -76,7 +76,6 @@ def model_context(model_name):
             torch.cuda.empty_cache()
         gc.collect()
         print("Model cleaned up from memory")
-
 
 def aggressive_cleanup():
     """Aggressive memory cleanup"""
@@ -124,9 +123,25 @@ def objective(trial, model_name, dataset, config, temp_dir):
     try:
         # Load model fresh for each trial to avoid memory accumulation
         with model_context(model_name) as (model, tokenizer):
+            result_dir = os.path.join(
+                os.path.join(
+                os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'finetune-hyde')
+                , 'results')
+                , str(trial.number))
+            print(f"Trial {trial.number} - Result dir: {result_dir}")
+            os.makedirs(result_dir, exist_ok=True)
             # Reduce dataset size for hyperparameter search (optional)
             train_dataset = dataset['train']
             eval_dataset = dataset['validation']
+        
+            output_param_path = os.path.join(result_dir, "hyperparameters.json")
+            with open(output_param_path, "w") as f:
+                json.dump({
+                    "learning_rate": learning_rate,
+                    "optimizer": optimizer,
+                    "num_train_epochs": num_train_epochs,
+                    "per_device_train_batch_size": per_device_train_batch_size
+                }, f, indent=4)
             
             # Memory-optimized training config
             args = SFTConfig(
@@ -167,7 +182,6 @@ def objective(trial, model_name, dataset, config, temp_dir):
                 train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 processing_class=tokenizer,
-                # strategy="ddp"
             )
             
             # Train the model
@@ -176,8 +190,17 @@ def objective(trial, model_name, dataset, config, temp_dir):
             # Quick evaluation - just get the loss
             eval_results = trainer.evaluate()
             eval_loss = eval_results['eval_loss']
+        
+            output_eval_path = os.path.join(result_dir, "eval.json")
+            with open(output_eval_path, "w") as f:
+                json.dump({
+                    "trial": trial.number,
+                    "eval_results": eval_results
+                }, f, indent=4)
             
             print(f"Trial {trial.number} completed - Eval loss: {eval_loss:.4f}")
+            evaluator = LMHarnessEvaluation(config["lm_harness_evaluation"], model=model, tokenizer=tokenizer)
+            evaluator.eval(os.path.join(result_dir, 'lm_harness_output.json'))
             
             # Clean up trainer before returning
             del trainer
@@ -258,7 +281,7 @@ def train_final_model(model_name, dataset, config, best_params):
             output_dir=config["training"]["output_dir"],
             max_length=config["training"]["max_length"],
             dataset_text_field = "texts",
-            packing=config["training"]["packing"],
+            packing=False,
             num_train_epochs=best_params.get('num_train_epochs', config["training"]["num_train_epochs"]),
             per_device_train_batch_size=best_params.get('per_device_train_batch_size', config["training"]["per_device_train_batch_size"]),
             gradient_checkpointing=config["training"]["gradient_checkpointing"],
@@ -287,7 +310,6 @@ def train_final_model(model_name, dataset, config, best_params):
             train_dataset=dataset['train'],
             eval_dataset=dataset['validation'],  # Use validation set for evaluation
             processing_class=tokenizer,
-            # strategy="ddp"
         )
         
         # Train final model
@@ -305,7 +327,7 @@ def train_final_model(model_name, dataset, config, best_params):
                 texts,
                 truncation=True,
                 padding="max_length",
-                max_length=config["training"]["max_length"],
+                max_length=config["training"]["max_length"]
             )
             tokenized["labels"] = tokenized["input_ids"].copy()
             return tokenized
@@ -323,6 +345,7 @@ def train_final_model(model_name, dataset, config, best_params):
         # =====================
 
         model = trainer.model
+
         tokenizer = trainer.tokenizer
 
         evaluator = PreSavingEvaluation(model, tokenizer)
@@ -365,6 +388,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
     config_path = args.config if args.config else default_config_path
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    torch.distributed.init_process_group(backend="nccl", device_id=local_rank)
+    torch.cuda.current_device()
 
     with open(config_path, 'r') as file:
         config = yaml.safe_load(file)
@@ -388,9 +415,9 @@ if __name__ == '__main__':
     dataset['train'] = dataset['train'].map(preprocess, batched=True)
     dataset['validation'] = dataset['validation'].map(preprocess, batched=True)
     dataset['test'] = dataset['test'].map(preprocess, batched=True)
-    print(f"Sample train after preprocessing: {dataset['train']['texts'][0]}")
-    print(f"Sample valid after preprocessing: {dataset['validation']['texts'][0]}")
-    print(f"Sample test after preprocessing: {dataset['test']['texts'][0]}")
+    print(f"Sample train after preprocessing: {dataset['train']["texts"][0]}")
+    print(f"Sample valid after preprocessing: {dataset['validation']["texts"][0]}")
+    print(f"Sample test after preprocessing: {dataset['test']["texts"][0]}")
 
     # Run hyperparameter optimization
     optuna_config = config.get("optuna", {})
@@ -401,6 +428,7 @@ if __name__ == '__main__':
     )
 
     print(MODEL_NAME)
+
     # Train final model with best parameters
     if best_params is not None:
         final_trainer = train_final_model(MODEL_NAME, dataset, config, best_params)
