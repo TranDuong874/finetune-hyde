@@ -17,8 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import math
 import torch, os
-os.environ["OMP_NUM_THREADS"] = "2"
-os.environ["OMP_NUM_THREADS"] = "0,1"
+# os.environ["OMP_NUM_THREADS"] = "2"
+# os.environ["OMP_NUM_THREADS"] = "0,1"
 
 PER_SAMPLE_EVALUATION_FILENAME = 'per_sample_evaluation.csv'
 
