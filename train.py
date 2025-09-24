@@ -388,9 +388,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
     default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
     config_path = args.config if args.config else default_config_path
-    # local_rank = int(os.environ["LOCAL_RANK"])
-    # torch.cuda.set_device(local_rank)
-    # torch.distributed.init_process_group(backend="nccl", device_id=local_rank)
+
+    if "LOCAL_RANK" in os.environ:
+        local_rank = int(os.environ["LOCAL_RANK"])
+        torch.cuda.set_device(local_rank)
+        torch.distributed.init_process_group(backend="nccl")
+    else:
+        print("Running in single GPU mode")
+        
     torch.cuda.current_device()
 
     with open(config_path, 'r') as file:
