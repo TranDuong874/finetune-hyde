@@ -17,8 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import math
 import torch, os
-# os.environ["OMP_NUM_THREADS"] = "2"
-# os.environ["OMP_NUM_THREADS"] = "0,1"
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OMP_NUM_THREADS"] = "0,1"
 
 PER_SAMPLE_EVALUATION_FILENAME = 'per_sample_evaluation.csv'
 
@@ -388,9 +388,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
     config_path = args.config if args.config else default_config_path
-    local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(local_rank)
-    torch.distributed.init_process_group(backend="nccl", device_id=local_rank)
+    # local_rank = int(os.environ["LOCAL_RANK"])
+    # torch.cuda.set_device(local_rank)
+    # torch.distributed.init_process_group(backend="nccl", device_id=local_rank)
     torch.cuda.current_device()
 
     with open(config_path, 'r') as file:
