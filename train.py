@@ -366,7 +366,9 @@ def train_final_model(model_name, dataset, config, best_params):
         # LM-HARNESS EVALUATION
         # =====================
         evaluator = LMHarnessEvaluation(model, tokenizer, config["lm_harness_evaluation"])
-        evaluator.eval('lm_harness_output.json')
+        results = evaluator.eval()
+        with open('harness_results.txt', 'w', encoding='utf-8') as file:
+            file.writelines(results)
 
         try:
             trainer.save_model()
