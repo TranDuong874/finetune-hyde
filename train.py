@@ -17,11 +17,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import argparse
 import math
 import torch, os
-
-# os.environ["OMP_NUM_THREADS"] = "2"
-# os.environ["OMP_NUM_THREADS"] = "0,1"
+os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["OMP_NUM_THREADS"] = "0,1"
 
 PER_SAMPLE_EVALUATION_FILENAME = 'per_sample_evaluation.csv'
+
+def create_conversation(sample):
+    return {
+        "messages": [
+            {"role": "user", "content": sample["question"]},
+            {"role": "assistant", "content": sample["chunk"]}
+        ]
+    }
 
 def load_data(train_path, test_path, valid_path):
     """Load train, test and validation datasets"""
@@ -56,13 +63,10 @@ def model_context(model_name):
             attn_implementation="eager",
             use_cache=False
         )
-
-        tokenizer = AutoTokenizer.from_pretrained(model_name)\
-        
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         yield model, tokenizer
-
     finally:
         if model is not None:
             del model
@@ -195,9 +199,11 @@ def objective(trial, model_name, dataset, config, temp_dir):
                 }, f, indent=4)
             
             print(f"Trial {trial.number} completed - Eval loss: {eval_loss:.4f}")
-            evaluator = LMHarnessEvaluation(config["lm_harness_evaluation"], model=model, tokenizer=tokenizer)
-            evaluator.eval(os.path.join(result_dir, 'lm_harness_output.json'))
-            
+            evaluator = LMHarnessEvaluation(harness_eval_config=config["lm_harness_evaluation"], model=model, tokenizer=tokenizer)
+            results = evaluator.eval()
+            with open('lm_eval_results.text', 'w', encoding='utf-8') as output_file:
+                output_file.write(results)
+
             # Clean up trainer before returning
             del trainer
             del result
@@ -359,11 +365,8 @@ def train_final_model(model_name, dataset, config, best_params):
         # =====================
         # LM-HARNESS EVALUATION
         # =====================
-        evaluator = LMHarnessEvaluation(harness_eval_config=config["lm_harness_evaluation"], model=model, tokenizer=tokenizer)
-        results = evaluator.eval()
-        with open('lm_eval_results.text', 'w', encoding='utf-8') as output_file:
-            output_file.write(results)
-            
+        evaluator = LMHarnessEvaluation(config["lm_harness_evaluation"], model=model, tokenizer=tokenizer)
+        evaluator.eval('lm_harness_output.json')
 
         try:
             trainer.save_model()
@@ -387,9 +390,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
     default_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
     config_path = args.config if args.config else default_config_path
-    local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(local_rank)
-    torch.distributed.init_process_group(backend="nccl", device_id=local_rank)
+
+    if "LOCAL_RANK" in os.environ:
+        local_rank = int(os.environ["LOCAL_RANK"])
+        torch.cuda.set_device(local_rank)
+        torch.distributed.init_process_group(backend="nccl")
+    else:
+        print("Running in single GPU mode")
+        
     torch.cuda.current_device()
 
     with open(config_path, 'r') as file:
