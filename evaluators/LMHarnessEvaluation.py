@@ -18,7 +18,7 @@ class LMHarnessEvaluation:
             device="cuda"
         )
 
-        eval_results = evaluator.simple_evaluator(
+        eval_results = lm_eval.simple_evaluator(
             model=language_model,
             **self.harness_eval_config['harness_eval_config']
         )
