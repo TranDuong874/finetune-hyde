@@ -1,4 +1,4 @@
-from lm_eval import evaluator, tasks
+from lm_eval import simple_evaluator, tasks
 from lm_eval.models.huggingface import HFLM
 
 class LMHarnessEvaluation:
@@ -18,7 +18,7 @@ class LMHarnessEvaluation:
             device="cuda"
         )
 
-        eval_results = lm_eval.simple_evaluator(
+        eval_results = simple_evaluator(
             model=language_model,
             **self.harness_eval_config['harness_eval_config']
         )
