@@ -15,7 +15,7 @@ class LMHarnessEvaluation:
         language_model = HFLM(
             pretrained=self.model,
             tokenizer=self.tokenizer,
-            device=self.device
+            device="cuda"
         )
 
         eval_results = evaluator.simple_evaluator(
