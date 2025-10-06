@@ -24,7 +24,7 @@ class LMHarnessEvaluation:
 
         eval_results = evaluator.simple_evaluate(
             model=language_model,
-            **self.harness_eval_config['harness_eval_config']
+            **self.harness_eval_config
         )
 
         return eval_results
