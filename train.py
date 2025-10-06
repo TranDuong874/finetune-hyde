@@ -199,7 +199,7 @@ def objective(trial, model_name, dataset, config, temp_dir):
                 }, f, indent=4)
             
             print(f"Trial {trial.number} completed - Eval loss: {eval_loss:.4f}")
-            evaluator = LMHarnessEvaluation(harness_eval_config=config["lm_harness_evaluation"], model=model, tokenizer=tokenizer)
+            evaluator = LMHarnessEvaluation(model, tokenizer, harness_eval_config=config["lm_harness_evaluation"])
             results = evaluator.eval()
             with open('lm_eval_results.text', 'w', encoding='utf-8') as output_file:
                 output_file.write(results)
