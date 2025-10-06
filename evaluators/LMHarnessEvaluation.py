@@ -1,5 +1,9 @@
-from lm_eval import simple_evaluator, tasks
+from lm_eval import evaluator, tasks
 from lm_eval.models.huggingface import HFLM
+import os, json
+import torch
+import numpy as np
+import copy
 
 class LMHarnessEvaluation:
     def __init__(self, model, tokenizer, harness_eval_config):
@@ -18,7 +22,7 @@ class LMHarnessEvaluation:
             device="cuda"
         )
 
-        eval_results = simple_evaluator(
+        eval_results = evaluator.simple_evaluate(
             model=language_model,
             **self.harness_eval_config['harness_eval_config']
         )
