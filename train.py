@@ -202,6 +202,7 @@ def objective(trial, model_name, dataset, config, temp_dir):
             evaluator = LMHarnessEvaluation(model, tokenizer, harness_eval_config=config["lm_harness_evaluation"])
             results = evaluator.eval()
             with open('lm_eval_results.text', 'w', encoding='utf-8') as output_file:
+                print("output written")
                 output_file.write(results)
 
             # Clean up trainer before returning
