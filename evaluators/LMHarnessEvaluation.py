@@ -30,4 +30,8 @@ class LMHarnessEvaluation:
             **self.harness_eval_config
         )
 
-        return str(eval_results)
+        with open('harness_results.json', 'w', encoding='utf-8') as file:
+            json.dump(eval_results['results'], file, indent=4, ensure_ascii=False)
+
+        return json.dumps(eval_results['results'], indent=4, ensure_ascii=False)
+
