@@ -46,12 +46,12 @@ class LMHarnessEvaluation:
         selected_results = {
             'bbh' : eval_results['bbh']['exact_match,get-answer'],
             'gpqa' : eval_results['gpqa_diamond_zeroshot']['acc,none'],
-            # 'ifeval' : eval_results['ifeval']
+            'ifeval' : eval_results['ifeval']['inst_level_strict_acc,none']
         }
         
-        with open('harness_result_reference.json', 'w', encoding='utf-8') as file:
-            json.dump(eval_results, file, indent=4, ensure_ascii=False)
+        # with open('harness_result_reference.json', 'w', encoding='utf-8') as file:
+        #     json.dump(eval_results, file, indent=4, ensure_ascii=False)
 
-        print(selected_results)
+        print(f"LM-Harness results: {selected_results}")
         return selected_results
 
