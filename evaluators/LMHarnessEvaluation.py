@@ -30,4 +30,4 @@ class LMHarnessEvaluation:
             **self.harness_eval_config
         )
 
-        return json.dumps(eval_results)
+        return str(eval_results)
