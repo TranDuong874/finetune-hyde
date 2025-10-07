@@ -22,6 +22,8 @@ class LMHarnessEvaluation:
             tokenizer=self.tokenizer,
             device="cuda"
         )
+        
+        print(language_model.device)
 
         eval_results = evaluator.simple_evaluate(
             model=language_model,
