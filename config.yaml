@@ -19,13 +19,6 @@ training:
   fsdp: ""
 
 lm_harness_evaluation:
-  tasks:
-    - "mmlu"
-    - "bbh"
-    - "gpqa"
-    - "gsm8k"
-    - "humaneval"
-    - "mbpp"
   num_fewshot: 3
   batch_size: "auto"
   limit: 500
