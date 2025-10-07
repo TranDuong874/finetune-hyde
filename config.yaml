@@ -19,12 +19,12 @@ training:
   fsdp: ""
 
 lm_harness_evaluation:
-  num_fewshot: 3
-  batch_size: "auto"
-  limit: 500
+  num_fewshot: 0          
+  batch_size: 1      
+  limit: 1
   apply_chat_template: true
-  fewshot_as_multiturn: true
-  system_instruction: ""
+  fewshot_as_multiturn: false  
+
 
 dataset:
   data_train_path: "/home/ubuntu/finetune/data/hyde/train.json"

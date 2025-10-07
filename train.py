@@ -368,8 +368,7 @@ def train_final_model(model_name, dataset, config, best_params):
         # =====================
         evaluator = LMHarnessEvaluation(model, tokenizer, config["lm_harness_evaluation"])
         results = evaluator.eval()
-
-
+        
         try:
             trainer.save_model()
             print(f"Final model saved to: {config['training']['output_dir']}")
