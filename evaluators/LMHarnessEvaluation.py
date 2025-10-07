@@ -16,7 +16,7 @@ class LMHarnessEvaluation:
 
 
     def eval(self):
-        model.to("cuda")
+        self.model.to("cuda")
         language_model = HFLM(
             pretrained=self.model,
             tokenizer=self.tokenizer,
